@@ -7,7 +7,6 @@ flutter pub add flutter_local_notifications
 flutter pub add firebase_core
 flutter pub add firebase_messaging
 flutter pub add http
-// flutter pub add provider
 flutter pub add shared_preferences
 ```
 
