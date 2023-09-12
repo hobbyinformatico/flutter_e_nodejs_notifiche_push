@@ -2,10 +2,18 @@ import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_notifiche_push/providers/provider_notifications.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../main.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+
+class MiaClasseStatica {
+  // Variabile statica
+  static String message = "null";
+}
 
 class MessagesNotifications{
   dynamic user;
@@ -78,6 +86,66 @@ class MessagesNotifications{
     }
   }
 
+  Future<void> saveTest(String? payload) async {
+    var onBackgroundMessageData = {
+      'title': payload, //message.notification?.title,
+      'body': payload, //message.notification?.body
+    };
+    //SharedPreferences prefs = (await SharedPreferences.getInstance());
+    //await prefs.reload();
+    (await SharedPreferences.getInstance()).setString('onBackgroundMessageData', payload ?? "niente");
+  }
+
+  Future<dynamic> loadTest() async {
+    var onBackgroundMessageData = {
+      'title': "niente titolo",
+      'body': "niente body"
+    };
+    var dataSaved = (await SharedPreferences.getInstance()).getString('onBackgroundMessageData');
+    if(dataSaved != null) {
+      onBackgroundMessageData['body'] = dataSaved;
+    }
+    return onBackgroundMessageData;
+  }
+
+  /// salva in SharedPreferences la notifica push arrivata ad app chiusa
+  Future<void> saveNoticationFromOnBackgroundMessage(RemoteMessage message) async {
+    var onBackgroundMessageData = {
+      'title': message.notification?.title,
+      'body': message.notification?.body
+    };
+    //SharedPreferences prefs = (await SharedPreferences.getInstance());
+    //await prefs.reload();
+    (await SharedPreferences.getInstance()).setString('onBackgroundMessageData', json.encode(onBackgroundMessageData));
+  }
+
+  /// recupera da SharedPreferences la notifica push arrivata ad app chiusa
+  Future<dynamic> loadNoticationFromOnBackgroundMessage() async {
+    //MiaClasseStatica.message
+    var onBackgroundMessageData = {
+      'title': "",
+      'body': ""
+    };
+    if(MiaClasseStatica.message != null) {
+      onBackgroundMessageData['body'] = MiaClasseStatica.message ?? "body_vuoto";
+      return;
+    }
+
+    try {
+      var dataSaved = (await SharedPreferences.getInstance()).getString('onBackgroundMessageData');
+      if(dataSaved != null) {
+        var dataDecoded = json.decode(dataSaved);
+        onBackgroundMessageData['title'] = dataDecoded.title;
+        onBackgroundMessageData['body'] = dataDecoded.body;
+      } else {
+        onBackgroundMessageData['body'] = "null";
+      }
+    } catch (e) {
+      onBackgroundMessageData['body'] = e.toString();
+    }
+    return onBackgroundMessageData;
+  }
+
   /// listeners che si attivano alla recezione di una notifica push da Firebase
   Future<void> listenNotifichePush() async {
     // richiedo all'utente il permesso di inviare notifiche
@@ -110,8 +178,8 @@ class MessagesNotifications{
         // Gestisci la notifica quando l'app è in primo piano.
         //print("***** App in primo piano *****");
         //await MyApp.selfInstance.mn.showNotification(message.notification?.title, message.notification?.body, message.data);
+        //await MyApp.selfInstance.mn.dispatcherNotifichePush(message);
         await MyApp.selfInstance.mn.dispatcherNotifichePush(message);
-        //print(message);
       });
 
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) async {
@@ -119,11 +187,17 @@ class MessagesNotifications{
         //print("***** App in background *****");
         //await MyApp.selfInstance.mn.showNotification(message.notification?.title, message.notification?.body, message.data);
         await MyApp.selfInstance.mn.dispatcherNotifichePush(message);
-        //print(message);
       });
 
+      /// Gestisci la notifica quando l'app è chiusa
       FirebaseMessaging.onBackgroundMessage((RemoteMessage message) async {
-        // Gestisci la notifica quando l'app è chiusa.
+        // Il dato "message" è visibile solo da qui dentro. L'app è chiusa e non posso
+        // comunicarle eventuali azioni da fare in base ai valori di "message".
+        // Per risolvere questo problema possiamo memorizzare temporaneamente in
+        // SharedPreferences i dati utili di "message".
+        // Quando l'app verrà aperta possiamo controllare la presenza di dati su
+        // SharedPreferences sotto una certa key e in questo modo capire se dobbiamo
+        // fare o meno qualcosa.
         await Firebase.initializeApp();
       });
     }
@@ -177,6 +251,7 @@ class MessagesNotifications{
       message.notification?.title, //"title",
       message.notification?.body, //"body",
       platformChannelSpecifics,
+      payload: message.notification?.body
     );
   }
 }

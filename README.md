@@ -7,6 +7,8 @@ flutter pub add flutter_local_notifications
 flutter pub add firebase_core
 flutter pub add firebase_messaging
 flutter pub add http
+// flutter pub add provider
+flutter pub add shared_preferences
 ```
 
 # Firebase
@@ -33,4 +35,16 @@ npm install apn
 3. integrazione database per gestire il salvataggio token
 ```
 npm install sqlite3
+```
+
+# Recupero dati da click notifica ad app chiusa
+```
+  RemoteMessage? message = await FirebaseMessaging.instance.getInitialMessage();
+  if (message != null) {
+    // dati notifica cliccata (da app chiusa)
+    // se le notifiche arrivavano ad APP aperta non passa da qui ma da "onSelectNotification"
+    // e bisogna interagire con "payload" valorizzato dallo "show" della notifica
+    print(message.notification);
+    print(message.notification?.body ?? "BODY VUOTO");
+  }
 ```
