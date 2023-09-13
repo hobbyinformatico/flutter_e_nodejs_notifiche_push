@@ -3,11 +3,95 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
+
+/// Gestione semplificata notifiche:
+/// 1. flutter pub add => flutter_local_notifications, firebase_core, firebase_messaging
+/// 2. Notifiche push:
+///   - registra token device su FCM con "generaToken()"
+///   - attendi notifiche da server
+///   - verifica se avvio app avvenuto da click badge notifica:
+///   - "checkClickBadgeNotificaAppChiusa()" restituisce "RemoteMessage msg != null"
+/// 3. Notifica interna:
+///   - avvia badge notifica da app (per comunicazioni non visibili da GUI)
 class MessagesNotifications {
   static FlutterLocalNotificationsPlugin? flnp;
   static String? token;
   static const String ICON = '@mipmap/ic_launcher';
+
+
+  /// Mostra badge con la notifica
+  static Future<void> showNotification(int id, String title, String body) async {
+    // init servizi (se non fossero già istanziati)
+    await MessagesNotifications._autoinit();
+
+    // rimuovi tutte le notifiche esistenti
+    await flnp!.cancelAll();
+    // Android
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    AndroidNotificationDetails(
+        'channel_id',
+        'channel_name',
+        channelDescription: 'channel_description',
+        importance: Importance.max,
+        priority: Priority.high,
+        ticker: 'ticker'
+    );
+    // iOS
+    const DarwinNotificationDetails iosNotificationsDetail =
+    DarwinNotificationDetails(
+        categoryIdentifier: 'textCategory'
+    );
+    const NotificationDetails platformChannelSpecifics =
+    NotificationDetails(
+        android: androidPlatformChannelSpecifics,
+        iOS: iosNotificationsDetail
+    );
+
+    // mostra badge notifica
+    await flnp!.show(
+        id,
+        title,
+        body,
+        platformChannelSpecifics,
+        payload: body
+    );
+  }
+
+  /// Chiedo al servizio di Google FirebaseMessaging (FCM) di generarmi un
+  /// token valido che identifica questo dispositivo per la recezione di
+  /// notifiche.
+  /// Questo token non scade MAI, tranne quando:
+  /// - The app deletes Instance ID
+  /// - The app is restored on a new device
+  /// - The user uninstalls/reinstall the app
+  /// - The user clears app data
+  /// Va salvato su SharedPreferences per evitare di richiederne uno
+  /// nuovo ad ogni avvio dell'app
+  static Future<void> generaToken() async {
+    // init servizi (se non fossero già istanziati)
+    await MessagesNotifications._autoinit();
+
+    // controllo che il token non sia già presente
+    String? tokenSaved = (await SharedPreferences.getInstance()).getString('tokenSaved');
+    print("(OLD) token notifiche: " + (tokenSaved ?? "nessuno"));
+    print("(NEW) token notifiche: " + (token ?? "nessuno"));
+    if(tokenSaved != null) {
+      // token già presente non serve richiederne uno nuovo
+      token = tokenSaved;
+      return;
+    }
+
+    // Richiedo nuovo token a servizio Push Notification FCM
+    token = await FirebaseMessaging.instance.getToken();
+    print("token notifiche: " + (token ?? "nessuno"));
+    if(token != null) {
+      // token ricevuto, salviamolo su backend e in locale
+      await MessagesNotifications._saveTokenOnBackend();
+      (await SharedPreferences.getInstance()).setString('tokenSaved', token!);
+    }
+  }
 
   /// Recupera Notifica se badge di notifica cliccata (da app chiusa),
   /// altrimenti NULL
@@ -24,26 +108,15 @@ class MessagesNotifications {
     // il titolo non si aggiorna
   }
 
-  /// Chiedo al servizio di Google FirebaseMessaging (FCM) di generarmi un
-  /// token valido che identifica questo dispositivo per la recezione di
-  /// notifiche
-  static Future<void> generaToken() async {
-    // init servizi (se non fossero già istanziati)
-    await MessagesNotifications._autoinit();
-
-    // Richiedo nuovo token a servizio Push Notification FCM
-    token = await FirebaseMessaging.instance.getToken();
-    print("token notifiche: " + (token ?? "nessuno"));
-    await MessagesNotifications._postData();
-    //await testGet();
-  }
-
   /// ( PRIVATO => Non richiamare direttamente! )
   /// Mostra il badge di notifica (customizzabile)
   static Future<void> _gestioneNotificaRicevuta(RemoteMessage msg) async {
     // init servizi (se non fossero già istanziati)
     await MessagesNotifications._autoinit();
+    // mostra badge con la notifica
+    await showNotification(0, msg.notification?.title ?? "", msg.notification?.body ?? "");
 
+    /*
     // rimuovi tutte le notifiche esistenti
     await flnp!.cancelAll();
     // Android
@@ -75,11 +148,12 @@ class MessagesNotifications {
         platformChannelSpecifics,
         payload: msg.notification?.body
     );
+    */
   }
 
   /// ( PRIVATO => Non richiamare direttamente! )
   /// Registrazione token nel nostro server (customizzabile in base al backend)
-  static Future<void> _postData() async {
+  static Future<void> _saveTokenOnBackend() async {
     final uri = Platform.isAndroid ? 'http://192.168.1.202:3000/salva-token' : 'http://localhost:3000/salva-token';
     final url = Uri.parse(uri);
     final headers = {

@@ -1,15 +1,7 @@
-import 'dart:convert';
-
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_notifiche_push/utils/messages_notifications.dart';
 
-/*
-  (await SharedPreferences.getInstance()).setString('onBackgroundMessageData', payload ?? "niente");
-  var dataSaved = (await SharedPreferences.getInstance()).getString('onBackgroundMessageData');
-*/
 
 Future <void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,7 +23,6 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<dynamic>(
-      //future: run(),
       future: MessagesNotifications.checkClickBadgeNotificaAppChiusa(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -71,6 +62,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void _incrementCounter() {
     setState(() async {
       _counter++;
+      MessagesNotifications.showNotification(0, "Titolo: " + _counter.toString(), "Corpo: " + _counter.toString());
     });
   }
 
