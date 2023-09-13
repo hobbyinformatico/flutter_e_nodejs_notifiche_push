@@ -71,6 +71,14 @@ class _MyHomePageState extends State<MyHomePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
+        actions: [
+          ElevatedButton(
+            onPressed: () async {
+              await MessagesNotifications.generaToken(forceRefreshToken: true);
+            },
+            child: const Text("Refresh")
+          )
+        ],
       ),
       body: Center(
         child: Column(

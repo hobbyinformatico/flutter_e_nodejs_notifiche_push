@@ -35,8 +35,37 @@ npm install apn
 ```
 npm install sqlite3
 ```
+4. icone badge di notifica
+  - su iOS c'è sempre quella dell'app (attualmente come impostazione di stile Apple, in futuro non si sa)
+  - Su Android (attualmente, in futuro non si sa) ci sono 2 visualizzazioni dell'icona del badge di modifica:
+    1. quella dell'app (a colori) quando il badge delle notifiche per
+       l'app non è esploso (il raggruppamento può contenerne una o più)
+    2. quella dell'app (tutta nera) quando il badge che raggruppa le notifiche
+       viene esploso. Le parti diverse da trasparente diventano nere quindi se non
+       ha una forma visibile si confonde tutto con lo sfondo (conviene crearne una ad hoc).
+       La PNG creata può essere messa in in android/app/src/main/res/drawable e richiamata
+       con 'ic_launcher_notifiche' (se si chiama ic_launcher_notifiche.png).
+       Va richiamata in 2 punti:
+```
+const String ICON = 'ic_launcher_notifiche';
+
+const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    AndroidNotificationDetails(
+        'channel_id',
+        'channel_name',
+        icon: ICON,
+        channelDescription: 'channel_description',
+        importance: Importance.max,
+        priority: Priority.high,
+        ticker: 'ticker'
+    );
+    
+const AndroidInitializationSettings androidSetting = AndroidInitializationSettings(ICON);
+```
 
 # Recupero dati da click notifica ad app chiusa
+Richiamare questa funzione all'interno dell'app (se l'app è stata aperta
+da un badge arrivato quando era chiusa verrà popolato, altrimenti NULL):
 ```
   RemoteMessage? message = await FirebaseMessaging.instance.getInitialMessage();
   if (message != null) {

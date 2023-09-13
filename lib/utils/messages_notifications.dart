@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
@@ -18,7 +19,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 class MessagesNotifications {
   static FlutterLocalNotificationsPlugin? flnp;
   static String? token;
-  static const String ICON = '@mipmap/ic_launcher';
+  // android/app/src/main/res/drawable/icona_notifiche.png
+  static const String ICON = 'ic_launcher_notifiche'; //'@mipmap/ic_launcher'; //'icona_notifiche'; //
 
 
   /// Mostra badge con la notifica
@@ -33,6 +35,7 @@ class MessagesNotifications {
     AndroidNotificationDetails(
         'channel_id',
         'channel_name',
+        icon: ICON,
         channelDescription: 'channel_description',
         importance: Importance.max,
         priority: Priority.high,
@@ -69,18 +72,20 @@ class MessagesNotifications {
   /// - The user clears app data
   /// Va salvato su SharedPreferences per evitare di richiederne uno
   /// nuovo ad ogni avvio dell'app
-  static Future<void> generaToken() async {
+  static Future<void> generaToken({forceRefreshToken = false}) async {
     // init servizi (se non fossero già istanziati)
     await MessagesNotifications._autoinit();
 
-    // controllo che il token non sia già presente
-    String? tokenSaved = (await SharedPreferences.getInstance()).getString('tokenSaved');
-    print("(OLD) token notifiche: " + (tokenSaved ?? "nessuno"));
-    print("(NEW) token notifiche: " + (token ?? "nessuno"));
-    if(tokenSaved != null) {
-      // token già presente non serve richiederne uno nuovo
-      token = tokenSaved;
-      return;
+    if(forceRefreshToken == false) {
+      // controllo che il token non sia già presente
+      String? tokenSaved = (await SharedPreferences.getInstance()).getString('tokenSaved');
+      print("(OLD) token notifiche: " + (tokenSaved ?? "nessuno"));
+      print("(NEW) token notifiche: " + (token ?? "nessuno"));
+      if(tokenSaved != null) {
+        // token già presente non serve richiederne uno nuovo
+        token = tokenSaved;
+        return;
+      }
     }
 
     // Richiedo nuovo token a servizio Push Notification FCM
