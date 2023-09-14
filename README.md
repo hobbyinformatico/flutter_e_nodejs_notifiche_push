@@ -62,6 +62,7 @@ const AndroidNotificationDetails androidPlatformChannelSpecifics =
     
 const AndroidInitializationSettings androidSetting = AndroidInitializationSettings(ICON);
 ```
+5. le icone creale con l'applicazione python crea_icone/main.py e mettile in android/app/src/main/res
 
 # Recupero dati da click notifica ad app chiusa
 Richiamare questa funzione all'interno dell'app (se l'app è stata aperta
