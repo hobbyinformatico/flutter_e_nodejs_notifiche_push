@@ -1,5 +1,14 @@
 # flutter_e_nodejs_notifiche_push
-Esempio di integrazione Notifiche push con FCM (Firebase Cloud Messaging) su client-server (app Flutter + Node.js)
+Esempio di integrazione Notifiche push con FCM (Firebase Cloud Messaging) su client-server (app Flutter + Node.js).
+
+- firebase_messaging
+  - abilita le notifiche push e le mostra sull'app
+  - NON dipende da flutter_local_notifications
+  - queste notifiche partono sempre da un backend e mai dall'app
+- flutter_local_notifications
+  - avvia le notifiche da app
+  - NON dipende da flutter_local_notifications
+  - NON serve se mostri solo notifiche push ricevute passivamente dal backend
 
 # Configurare Notifiche Push
 ```
@@ -8,6 +17,7 @@ flutter pub add firebase_core
 flutter pub add firebase_messaging
 flutter pub add http
 flutter pub add shared_preferences
+flutter pub add flutter_app_badger
 ```
 
 # Firebase
@@ -27,7 +37,7 @@ flutter pub add shared_preferences
 ```
 npm install express firebase-admin
 ```
-2. notifiche Apple
+2. notifiche Apple (NON serve se APN di iOS lo lasci gestire a FCM fornendogli il certificato .p8 di Apple)
 ```
 npm install apn
 ```
@@ -62,6 +72,13 @@ const AndroidNotificationDetails androidPlatformChannelSpecifics =
     
 const AndroidInitializationSettings androidSetting = AndroidInitializationSettings(ICON);
 ```
+  - numero badge notifica:
+    1. per mostrare il numero di notifiche sull'icona app non ci sono meccanismi automatici ma va
+       settato il numero a mano (sia da Android che da iOS). Se però usi le Firebase Cloud Functions
+       il payload viene arricchito di nascosto (solo con la parte Android) così che non serve abilitare
+       il suono e neppure gestire il contatore manualmente.
+    2. per rimuoverle quando entri sull'app devi usare "FlutterAppBadger.removeBadge();" (flutter_app_badger)
+  - 
 5. le icone creale con l'applicazione python crea_icone/main.py e mettile in android/app/src/main/res
 
 # Recupero dati da click notifica ad app chiusa
