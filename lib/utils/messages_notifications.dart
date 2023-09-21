@@ -9,13 +9,22 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// Gestione semplificata notifiche:
 /// 1. flutter pub add => flutter_local_notifications, firebase_core, firebase_messaging
-/// 2. Notifiche push:
+/// 2. Notifiche push (firebase_messaging, NON SERVE flutter_local_notifications):
 ///   - registra token device su FCM con "generaToken()"
 ///   - attendi notifiche da server
-///   - verifica se avvio app avvenuto da click badge notifica:
-///   - "checkClickBadgeNotificaAppChiusa()" restituisce "RemoteMessage msg != null"
-/// 3. Notifica interna:
-///   - avvia badge notifica da app (per comunicazioni non visibili da GUI)
+///   - avvia badge notifica sia ad app aperta che chiusa
+///   - recupera messaggio (su click badge SOLO ad app chiusa):
+///     - "checkClickBadgeNotificaAppChiusa()" restituisce "RemoteMessage msg != null"
+/// 3. Notifica interna (flutter_local_notifications, NON SERVE firebase_messaging):
+///   - avvia badge notifica da app (non si attiva ad app chiusa)
+///   - recupera payload messaggio (su click badge SOLO ad app aperta):
+///     - "_onClickBadgeNotifica()"
+///       - scatta da solo senza richiamarlo direttamente
+///     - showNotification()
+///       - avvia la notifica (visibile solo ad app aperta)
+///       - assegnamo manualmente un "payload" al messaggio, che servirà per comunicare
+///         qualcosa a "_onClickBadgeNotifica()" che altrimenti al click del badge
+///         non troverà nulla
 class MessagesNotifications {
   static FlutterLocalNotificationsPlugin? flnp;
   static String? token;
@@ -64,17 +73,22 @@ class MessagesNotifications {
 
   /// Chiedo al servizio di Google FirebaseMessaging (FCM) di generarmi un
   /// token valido che identifica questo dispositivo per la recezione di
-  /// notifiche.
-  /// Questo token non scade MAI, tranne quando:
+  /// notifiche su Android e iOS (se ho dato il permesso a FCM di gestire APN) .
+  /// Questo token non scadrà MAI, a meno che:
   /// - The app deletes Instance ID
   /// - The app is restored on a new device
   /// - The user uninstalls/reinstall the app
   /// - The user clears app data
-  /// Va salvato su SharedPreferences per evitare di richiederne uno
+  /// Conviene salvarlo su SharedPreferences per evitare di richiederne uno
   /// nuovo ad ogni avvio dell'app
   static Future<void> generaToken({forceRefreshToken = false}) async {
     // init servizi (se non fossero già istanziati)
     await MessagesNotifications._autoinit();
+    // messaggio (presente solo se l'app era chiusa ed è stato cliccato il badge)
+    RemoteMessage? msg = await MessagesNotifications.checkClickBadgeNotificaAppChiusa();
+    if(msg != null) {
+      // azioni da compiere ad app aperta dal click del badge
+    }
 
     if(forceRefreshToken == false) {
       // controllo che il token non sia già presente
@@ -120,40 +134,6 @@ class MessagesNotifications {
     await MessagesNotifications._autoinit();
     // mostra badge con la notifica
     await showNotification(0, msg.notification?.title ?? "", msg.notification?.body ?? "");
-
-    /*
-    // rimuovi tutte le notifiche esistenti
-    await flnp!.cancelAll();
-    // Android
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
-    AndroidNotificationDetails(
-        'channel_id',
-        'channel_name',
-        channelDescription: 'channel_description',
-        importance: Importance.max,
-        priority: Priority.high,
-        ticker: 'ticker'
-    );
-    // iOS
-    const DarwinNotificationDetails iosNotificationsDetail =
-    DarwinNotificationDetails(
-        categoryIdentifier: 'textCategory'
-    );
-    const NotificationDetails platformChannelSpecifics =
-    NotificationDetails(
-        android: androidPlatformChannelSpecifics,
-        iOS: iosNotificationsDetail
-    );
-
-    // mostra badge notifica
-    await flnp!.show(
-        0,
-        msg.notification?.title,
-        msg.notification?.body,
-        platformChannelSpecifics,
-        payload: msg.notification?.body
-    );
-    */
   }
 
   /// ( PRIVATO => Non richiamare direttamente! )
@@ -255,7 +235,7 @@ class MessagesNotifications {
     );
 
     // ATTENZIONE!!
-    //    Rimuovendo "bool? init = " le notifiche SMETTONO di funzionare ad app CHIUSA
+    //    Rimuovendo "bool? init = " le notifiche SMETTONO di funzionare ad app in BACKGROUND
     bool? init = await flnp!.initialize(
         initializationSettings,
         onDidReceiveNotificationResponse: MessagesNotifications._onClickBadgeNotifica,
