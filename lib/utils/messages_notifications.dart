@@ -27,15 +27,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///         non troverà nulla
 class MessagesNotifications {
   static FlutterLocalNotificationsPlugin? flnp;
+  static bool pushNotifications = false;
   static String? token;
   // android/app/src/main/res/drawable/icona_notifiche.png
   static const String ICON = 'ic_launcher_notifiche'; //'@mipmap/ic_launcher'; //'icona_notifiche'; //
 
 
-  /// Mostra badge con la notifica
+  /// Mostra badge con la notifica (notifiche locali ad app aperta)
   static Future<void> showNotification(int id, String title, String body) async {
     // init servizi (se non fossero già istanziati)
-    await MessagesNotifications._autoinit();
+    await MessagesNotifications._autoinit_localNotifications();
 
     // rimuovi tutte le notifiche esistenti
     await flnp!.cancelAll();
@@ -82,8 +83,12 @@ class MessagesNotifications {
   /// Conviene salvarlo su SharedPreferences per evitare di richiederne uno
   /// nuovo ad ogni avvio dell'app
   static Future<void> generaToken({forceRefreshToken = false}) async {
-    // init servizi (se non fossero già istanziati)
-    await MessagesNotifications._autoinit();
+    // init servizi (se non fossero già istanziati):
+    //  1. notifiche locali (ad app aperta)
+    await MessagesNotifications._autoinit_localNotifications();
+    //  2. notifiche push (ad app aperta o chiusa)
+    await MessagesNotifications._autoinit_pushNotifications();
+
     // messaggio (presente solo se l'app era chiusa ed è stato cliccato il badge)
     RemoteMessage? msg = await MessagesNotifications.checkClickBadgeNotificaAppChiusa();
     if(msg != null) {
@@ -131,7 +136,7 @@ class MessagesNotifications {
   /// Mostra il badge di notifica (customizzabile)
   static Future<void> _gestioneNotificaRicevuta(RemoteMessage msg) async {
     // init servizi (se non fossero già istanziati)
-    await MessagesNotifications._autoinit();
+    await MessagesNotifications._autoinit_localNotifications();
     // mostra badge con la notifica
     await showNotification(0, msg.notification?.title ?? "", msg.notification?.body ?? "");
   }
@@ -207,14 +212,16 @@ class MessagesNotifications {
         await Firebase.initializeApp();
       });
       */
+
+      pushNotifications = true;
     }
   }
 
   /// ( PRIVATO => Non richiamare direttamente! )
-  /// Inizializza i servizi necessari al funzionamento delle notifiche
-  static Future<void> _autoinit() async {
+  /// Inizializza i servizi necessari al funzionamento delle notifiche (LOCALI, ad app aperta)
+  static Future<void> _autoinit_localNotifications() async {
     if(flnp != null) {
-      // servizi già inizializzati => esco
+      // servizio (notifiche locali) già inizializzato => esco
       return;
     }
 
@@ -241,6 +248,15 @@ class MessagesNotifications {
         onDidReceiveNotificationResponse: MessagesNotifications._onClickBadgeNotifica,
         onDidReceiveBackgroundNotificationResponse: MessagesNotifications._onClickBadgeNotifica
     );
+  }
+
+  /// ( PRIVATO => Non richiamare direttamente! )
+  /// Inizializza i servizi necessari al funzionamento delle notifiche (NOTIFICHE PUSH, ad app aperta e chiusa)
+  static Future<void> _autoinit_pushNotifications() async {
+    if(pushNotifications == true) {
+      // servizio (notifiche push) già inizializzato => esco
+      return;
+    }
 
     // registro listener notifiche
     await MessagesNotifications._listenNotifichePush();
